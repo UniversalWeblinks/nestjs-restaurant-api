@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Restaurant } from './schema/restaurant.schema';
 import * as mongoose from 'mongoose';
@@ -34,20 +34,29 @@ export class RestaurantsService {
     }
 
     // create new restaurant
-    async create(restaurant: Restaurant): Promise<Restaurant> {
-        // const location = await APIUtils.getRestaurantLocation(
-        //     restaurant.address,
-        //   );
+    async create(restaurant: Restaurant, user: User): Promise<Restaurant> {
+        const location = await APIUtils.getRestaurantLocation(
+            restaurant.address,
+          );
       
-        // const data = Object.assign(restaurant, { user: user._id, location });
+        const data = Object.assign(restaurant, { user: user._id, location });
       
-        const res = await this.restaurantModel.create(restaurant);
+        const res = await this.restaurantModel.create(data);
         return res;
     }
 
     // get restaurant by ID
     async findByID(id: string): Promise<Restaurant> {
+        const isValidId = mongoose.isValidObjectId(id);
+
+        if (!isValidId) {
+            throw new BadRequestException(
+                'Wrong mongoose ID Error. Please enter correct ID.',
+            );
+        }
+
         const res = await this.restaurantModel.findById(id);
+
         if (!res) {
             throw new NotFoundException('Do data found')
         }
@@ -74,4 +83,29 @@ export class RestaurantsService {
         );
         return res;
     }
+
+    // upload restuarant images
+    async uploadImages(id, files) {
+        const images = await APIUtils.upload(files);
+    
+        const restaurant = await this.restaurantModel.findByIdAndUpdate(
+          id,
+          {
+            images: images as Object[],
+          },
+          {
+            new: true,
+            runValidators: true,
+          },
+        );
+    
+        return restaurant;
+      }
+    
+      //   delete restaurant images
+      async deleteImages(images) {
+        if (images.length === 0) return true;
+        const res = await APIUtils.deleteImages(images);
+        return res;
+      }
 }

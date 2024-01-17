@@ -34,9 +34,6 @@ import {
         });
   
         const token = await APIUtils.assignJwtToken(user._id, this.jwtService);
-        console.log(
-            {token:token}
-        )
   
         return { token };
       } catch (error) {

@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { Restaurant } from './schema/restaurant.schema';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
-import { Query as ExpressQuery} from 'express-serve-static-core';
+import { Query as ExpressQuery } from 'express-serve-static-core';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/user/decorators/roles.decorator';
@@ -24,50 +24,67 @@ export class RestaurantsController {
         return this.restaurantsService.findAll(query);
     }
 
-    @Post()
-    // @UseGuards(AuthGuard(), RolesGuard)
-    // @Roles('admin', 'user')
+    @Post('/create')
+    @UseGuards(AuthGuard(), RolesGuard)
+    @Roles('admin', 'user')
     async createNewRestaurant(
         @Body()
         restaurant: CreateRestaurantDto,
-        // @CurrentUser() user: User,
+        @CurrentUser() user: User,
     ): Promise<Restaurant> {
-        return this.restaurantsService.create(restaurant);
-        // return this.restaurantsService.create(restaurant, user);
+        return this.restaurantsService.create(restaurant, user);
     }
 
     @Get(':id')
     async getRestaurantByID(
-        @Param('id') 
+        @Param('id')
         id: string
     ): Promise<Restaurant> {
         return this.restaurantsService.findByID(id);
     }
 
-    @Put(':id')
+    @Put('/update/:id')
+    @UseGuards(AuthGuard())
     async updateRestaurantByID(
-        @Param('id') 
+        @Param('id')
         id: string,
         @Body()
-        restaurant: UpdateRestaurantDto
+        restaurant: UpdateRestaurantDto,
+        @CurrentUser() user: User,
     ): Promise<Restaurant> {
-        await this.restaurantsService.findByID(id);
+        const res = await this.restaurantsService.findByID(id);
+        if (res.user.toString() !== user._id.toString()) {
+            throw new ForbiddenException('You can not update this restaurant.');
+        }
         return this.restaurantsService.update(id, restaurant);
     }
 
-    @Delete(':id')
+    @Delete('/delete/:id')
+    @UseGuards(AuthGuard())
     async deleteRestaurantByID(
-        @Param('id') 
+        @Param('id')
         id: string,
-    ): Promise<{deleted: Boolean}> {
-        await this.restaurantsService.findByID(id);
-        const restaurant = this.restaurantsService.deleteById(id);
+        @CurrentUser() user: User,
+    ): Promise<{ deleted: Boolean }> {
+        const restaurant = await this.restaurantsService.findByID(id);
 
-        if (restaurant) {
+        if (restaurant.user.toString() !== user._id.toString()) {
+            throw new ForbiddenException('You can not delete this restaurant.');
+        }
+
+        const isDeleted = await this.restaurantsService.deleteImages(
+            restaurant.images,
+        );
+
+        if (isDeleted) {
+            this.restaurantsService.deleteById(id);
             return {
-                deleted: true
-            }
+                deleted: true,
+            };
+        } else {
+            return {
+                deleted: false,
+            };
         }
     }
-
 }
