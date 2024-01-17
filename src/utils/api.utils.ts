@@ -33,7 +33,7 @@ export default class APIUtils {
     }
   }
 
-  // Upload images
+  // Upload images to S3
   static async upload(files) {
     return new Promise((resolve, reject) => {
       const s3 = new S3({
@@ -66,7 +66,7 @@ export default class APIUtils {
     });
   }
 
-  // Delete images
+  // Delete Images from S3
   static async deleteImages(images) {
     const s3 = new S3({
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
